@@ -64,6 +64,17 @@ async function run() {
       const result = await carts.insertOne(cartData);
       res.send(result);
     });
+    app.post("/locatCartProduct", async (req, res) => {
+      const ids = req.body.ids;
+      const products = await product
+        .find({
+          _id: {
+            $in: ids.map((id) => new ObjectId(id)),
+          },
+        })
+        .toArray();
+      res.send(products);
+    });
     app.patch("/cart/:id", async (req, res) => {
       const id = req.params.id;
       const { quantity } = req.body;
