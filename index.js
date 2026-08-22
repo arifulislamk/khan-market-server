@@ -34,11 +34,11 @@ async function run() {
     const carts = client.db("khanmarket").collection("carts");
     // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
-    app.get("/product", async(req,res) =>{
-        // console.log("paisi")
-        const result = await product.find().toArray() ;
-        res.send(result)
-    })
+    app.get("/product", async (req, res) => {
+      // console.log("paisi")
+      const result = await product.find().toArray();
+      res.send(result);
+    });
     app.get("/product/:productId", async (req, res) => {
       const id = req.params.productId;
       // console.log(id,"paisi")
@@ -47,11 +47,59 @@ async function run() {
     });
 
     app.post("/cart", async (req, res) => {
-      const data = req.body ;
-      const result = await carts.insertOne(data);
+      const data = req.body;
+      const alreadyAdded = await carts.findOne({
+        email: data.email,
+        id: data.id,
+      });
+      if (alreadyAdded) {
+        return res.status(409).send({
+          message: "Product already exists in cart",
+        });
+      }
+      const cartData = {
+        ...data,
+        quantity: data.quantity || 1,
+      };
+      const result = await carts.insertOne(cartData);
       res.send(result);
-    })
+    });
+    app.patch("/cart/:id", async (req, res) => {
+      const id = req.params.id;
+      const { quantity } = req.body;
+      const result = await carts.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { quantity } },
+      );
+      res.send(result);
+    });
 
+    app.get("/cart/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await carts.find({ email }).toArray();
+      const cartProducts = await Promise.all(
+        result.map(async (item) => {
+          const productData = await product.findOne({
+            _id: new ObjectId(item.id),
+          });
+
+          if (!productData) return null;
+          return {
+            ...productData,
+            cartId: item._id,
+            quantity: item.quantity || 1,
+          };
+        }),
+      );
+      app.delete("/cart/:id", async (req, res) => {
+        const id = req.params.id;
+        const result = await carts.deleteOne({
+          _id: new ObjectId(id),
+        });
+        res.send(result);
+      });
+      res.send(cartProducts.filter(Boolean));
+    });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",
     );
